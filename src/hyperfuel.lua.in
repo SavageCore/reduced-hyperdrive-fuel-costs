@@ -1,0 +1,99 @@
+-- Reduced Hyperdrive Fuel Costs - @VARIANT_LABEL@
+-- RENDERED FILE - do not edit; edit src/hyperfuel.lua.in and run make release.
+--
+-- Updated by SavageCore
+--
+-- Approach ported from "Reduced Ship Launch Fuel Costs (Or Increased)"
+-- by Cykron0271, original mod by Lexman6 and Lo2k
+-- https://www.nexusmods.com/nomanssky/mods/3490
+
+local VariantLabel = "@VARIANT_LABEL@" -- "Double", "Quadruple" or "Tenfold"
+
+-- Per-tech final values for Ship_Hyperdrive_JumpsPerCell: how many warps the
+-- hyperdrive gets out of one Warp Cell. These are the vanilla values scaled by
+-- the variant factor, not a flat absolute number, so the Royal and Robo drives
+-- keep their built-in 2x advantage over the Standard and Alien drives.
+--
+-- Direction is INVERTED compared with a fuel-spending multiplier. The pulse
+-- drive burns a set amount per jump, so lower is cheaper there. The hyperdrive
+-- is a charge mechanic instead: it fills with Warp Cells and each jump spends
+-- one of them, so more warps per cell means less fuel per jump and HIGHER is
+-- cheaper here. Values that look implausibly large are correct for this stat.
+local HD          = @HD@          -- HYPERDRIVE       standard drive,  vanilla 1
+local HDAlien     = @HD_ALIEN@    -- WARP_ALIEN       alien drive,     vanilla 1
+local HDSpec      = @HD_SPEC@     -- HYPERDRIVE_SPEC  royal drive,     vanilla 2
+local HDRobo      = @HD_ROBO@     -- HYPERDRIVE_ROBO  robo drive,      vanilla 2
+
+local VariantDesc = "@DESC@"
+
+local ModName            = "Reduced Hyperdrive Fuel Costs"
+local OriginalModAuthor  = "Cykron0271 -- original mod by Lexman6 and Lo2k"
+local ModAuthor          = "SavageCore"
+local GameVersion        = "v7.04" -- Cosmos
+local FileSource         = "METADATA/REALITY/TABLES/NMS_REALITY_GCTECHNOLOGYTABLE.MBIN"
+local HyperFuelStat      = "Ship_Hyperdrive_JumpsPerCell"
+
+-- The four ship hyperdrive technologies. Each one carries
+-- Ship_Hyperdrive_JumpsPerCell at StatBonuses _index=2, sitting next to
+-- Ship_Hyperdrive (_index=0, the has-hyperdrive flag) and
+-- Ship_Hyperdrive_JumpDistance (_index=1, the range in light years).
+--
+-- Deliberately NOT touched:
+--   * ChargeAmount (120), ChargeType and ChargeBy on these same technologies.
+--     Those govern how fast the hyperdrive fills, so leaving them alone keeps
+--     tanking up at the vanilla rate. A full tank is 120 / ChargeValue.
+--   * ChargeValue (24) on the Warp Cell HYPERFUEL1.
+-- Together those are the tank size, not the fuel cost per jump.
+--
+-- The colour-drive upgrades (HDRIVEBOOST1-4) only grant Ship_Hyperdrive, and
+-- the freighter drive (F_HYPERDRIVE) uses the separate
+-- Freighter_Hyperdrive_JumpsPerCell, so neither is affected by this mod.
+local HyperTechs = {
+    {"HYPERDRIVE",      HD},
+    {"WARP_ALIEN",      HDAlien},
+    {"HYPERDRIVE_SPEC", HDSpec},
+    {"HYPERDRIVE_ROBO", HDRobo},
+}
+
+-- One change block per tech. All four are identical apart from the tech ID
+-- and the value, so generate them rather than writing four near-identical
+-- literal tables.
+--
+-- SPECIAL_KEY_WORDS is a flat list of (name, value) pairs and MUST have an
+-- even length. The real nesting under a tech is
+--   StatBonuses -> StatBonuses(GcStatsBonus) -> Stat(GcStatsTypes) -> StatsType
+-- but "Stat" is deliberately NOT named in the keyword path. The StatsType
+-- leaf is matched by recursive search from the GcStatsBonus node, and it is
+-- unique within a tech, so it needs no help. Naming "Stat" as well produces
+-- an odd-length list, AMUMSS silently discards the trailing entry, the path
+-- stops matching, and the Bonus change is applied to EVERY StatBonuses in
+-- the whole technology table instead of the one intended. Verified against
+-- v7.04: naming Stat rewrites 501 Bonus values, omitting it rewrites 1.
+local MxmlChangeTable = {}
+for _, tech in ipairs(HyperTechs) do
+    MxmlChangeTable[#MxmlChangeTable + 1] = {
+        ["SPECIAL_KEY_WORDS"]  = {"ID", tech[1], "StatBonuses", "GcStatsBonus", "StatsType", HyperFuelStat},
+        ["SECTION_UP"]         = 1,
+        ["REPLACE_TYPE"]       = "ALL",
+        ["VALUE_CHANGE_TABLE"] = {{"Bonus", tech[2]}},
+    }
+end
+
+NMS_MOD_DEFINITION_CONTAINER = {
+    ["MOD_FILENAME"]    = ModName.." - "..VariantLabel..".pak",
+    ["MOD_DESCRIPTION"] = VariantDesc.." - Originally created by "..OriginalModAuthor,
+    ["MOD_AUTHOR"]      = ModAuthor,
+    ["NMS_VERSION"]     = GameVersion,
+    ["MODIFICATIONS"]   =
+    {
+        {
+            ["MBIN_CHANGE_TABLE"]   =
+            {
+                {
+                    ["MBIN_FILE_SOURCE"]    = {FileSource},
+                    ["MXML_CHANGE_TABLE"]   = MxmlChangeTable,
+                },
+            }
+        },
+    }
+}
