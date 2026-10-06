@@ -1,14 +1,17 @@
-# Reduced Pulse Drive Fuel Costs
-# Builds the FOMOD installer (Half / Quarter / Tenth) with the
+# Reduced Hyperdrive Fuel Costs
+# Builds the FOMOD installer (Double / Quadruple / Tenfold) with the
 # AMUMSS Linux port.
 #
-# What it does: scales down Ship_PulseDrive_MiniJumpFuelSpending on the four
-# ship pulse engine technologies (SHIPJUMP1, SHIPJUMP_ALIEN, SHIPJUMP_SPEC,
-# SHIPJUMP_ROBO) in NMS_REALITY_GCTECHNOLOGYTABLE. That is the multiplier for
-# pulse engine fuel, i.e. the fuel you burn during a pulse jump and recharge
-# with Tritium or Pyrite. LOWER is cheaper. The upgrade technologies that cut
-# pulse fuel on top of the engine (UT_PULSEFUEL, PHOTONIX_CORE, SOLAR_SAIL)
-# are deliberately left untouched so upgrades keep working as in vanilla.
+# What it does: scales up Ship_Hyperdrive_JumpsPerCell on the four ship
+# hyperdrive technologies (HYPERDRIVE, WARP_ALIEN, HYPERDRIVE_SPEC,
+# HYPERDRIVE_ROBO) in NMS_REALITY_GCTECHNOLOGYTABLE. That is the number of
+# warps the hyperdrive gets out of one Warp Cell, i.e. how much fuel a single
+# jump burns. HIGHER is cheaper here, the inverse of a fuel-spending
+# multiplier, because the hyperdrive is a charge mechanic rather than a
+# burn-per-jump one. Deliberately left alone: the hyperdrive ChargeAmount
+# (120), ChargeType and ChargeBy, and the Warp Cell HYPERFUEL1 ChargeValue
+# (24). Those set how fast the hyperdrive fills, so the tank still charges at
+# the vanilla rate.
 #
 # Usage:
 #   make release      clean rebuild + verify + pack dist/ zip (default)
@@ -21,7 +24,7 @@
 #
 # Game-update playbook (see README.md):
 #   1. fetch latest MBINCompiler into AMUMSS_HOME
-#   2. bump GameVersion in src/pulsefuel.lua.in to the new game version
+#   2. bump GameVersion in src/hyperfuel.lua.in to the new game version
 #   3. make release VERSION=x.y.z   (bump the mod version too)
 #   4. import + deploy + test in game
 
@@ -29,11 +32,11 @@ AMUMSS_HOME ?= $(HOME)/AMUMSS
 AMUMSS_LINUX ?= $(HOME)/Git/AMUMSS/linux
 
 # Mod version
-VERSION      := 0.1.0
+VERSION      := 0.0.0
 
-MOD_SET      := Reduced Pulse Drive Fuel Costs
+MOD_SET      := Reduced Hyperdrive Fuel Costs
 
-SRC_TEMPLATE := src/pulsefuel.lua.in
+SRC_TEMPLATE := src/hyperfuel.lua.in
 
 BUILD := build
 DIST  := dist
@@ -42,77 +45,81 @@ STAMP := $(BUILD)/.built
 # Technology table this mod patches, relative to a built variant folder.
 EXML_RELPATH := METADATA/REALITY/TABLES/NMS_REALITY_GCTECHNOLOGYTABLE.EXML
 
-# Index of the Ship_PulseDrive_MiniJumpFuelSpending entry inside a ship
-# engine's StatBonuses list, as of v7.04. All four ship engines carry it at
-# index 1 (the three fuel-reducing upgrades carry it at index 0). verify
-# asserts the patch landed here, so a game update that reorders the list
-# fails loudly instead of quietly editing the wrong stat.
-PULSE_BONUS_INDEX := 1
+# Index of the Ship_Hyperdrive_JumpsPerCell entry inside a hyperdrive's
+# StatBonuses list, as of v7.04. All four hyperdrives carry it at index 2;
+# Ship_Hyperdrive sits at 0 and Ship_Hyperdrive_JumpDistance at 1. verify
+# asserts the patch landed here, so a game update that reorders the list fails
+# loudly instead of quietly editing the wrong stat.
+HYPER_BONUS_INDEX := 2
 
 # Installer variants. Each variant label names the rendered script, the
 # CreatedMODS folder, the fomod source folder and the in-game MOD_FILENAME
-# suffix, so it must match ModuleConfig.xml exactly. Ordered most to least
-# fuel reduction. There is deliberately no "vanilla" option: a variant that
-# rewrote the values to the unmodified ones would still install a patch on the
-# technology table, gaining nothing while adding conflict surface with every
+# suffix, so it must match ModuleConfig.xml exactly. Ordered least to most
+# fuel reduction. The labels name the mechanic rather than the percentage
+# because Ship_Hyperdrive_JumpsPerCell counts warps per Warp Cell, and that is
+# what this mod changes. There is deliberately no "vanilla" option: a variant
+# that rewrote the values to the unmodified ones would still install a patch on
+# the technology table, gaining nothing while adding conflict surface with every
 # other mod that touches that file. To play unmodified, do not install it.
-VARIANT   := Half Quarter Tenth
+VARIANT   := Double Quadruple Tenfold
 RENDERED  := $(addprefix $(BUILD)/,$(addsuffix .lua,$(VARIANT)))
 
-# Per-tech final value of Ship_PulseDrive_MiniJumpFuelSpending to write. These
-# are the vanilla values scaled by the variant factor, not one flat absolute
-# number, so the Luminance engine keeps its built-in 50% efficiency advantage.
+# Per-tech final value of Ship_Hyperdrive_JumpsPerCell to write: warps per Warp
+# Cell. These are the vanilla values scaled by the variant factor, not one flat
+# absolute number, so the Royal and Robo drives keep their built-in 2x advantage
+# over the Standard and Alien drives.
 #
-#              factor  SHIPJUMP1  SHIPJUMP_ALIEN  SHIPJUMP_SPEC  SHIPJUMP_ROBO
-#   (vanilla)   1.00      1.0         0.5            1.0            1.0
-#   Half         0.50      0.5         0.25           0.5            0.5
-#   Quarter      0.25      0.25        0.125          0.25           0.25
-#   Tenth        0.10      0.1         0.05           0.1            0.1
+#              factor  HYPERDRIVE  WARP_ALIEN  HYPERDRIVE_SPEC  HYPERDRIVE_ROBO
+#   (vanilla)   1.00      1.0         1.0            2.0               2.0
+#   Double      2.00      2.0         2.0            4.0               4.0
+#   Quadruple   4.00      4.0         4.0            8.0               8.0
+#   Tenfold    10.00     10.0        10.0           20.0              20.0
 #
-# There is deliberately no 0.0 (free fuel) variant. A zero multiplier does not
-# work - it was tested in game and the pulse jump fails - so do not re-add one
-# without re-testing from scratch. The lowest vanilla value for this stat is
-# 0.20 (Vesper Sail), so 0.1 is already well past anything the game ships.
-JUMP1_Half     := 0.5
-JUMP1_Quarter  := 0.25
-JUMP1_Tenth    := 0.1
+# The factor is the reciprocal of the fuel cost per jump: Tenfold is ten warps
+# per cell, i.e. a tenth of the fuel vanilla burns per jump. These numbers are
+# deliberately far outside the vanilla range (which tops out at 2.0) - that is
+# the whole point of the mod, not a mistake. Do not "tidy" them back toward 1.0.
+HD_Double    := 2.0
+HD_Quadruple := 4.0
+HD_Tenfold   := 10.0
 
-JUMP_ALIEN_Half     := 0.25
-JUMP_ALIEN_Quarter  := 0.125
-JUMP_ALIEN_Tenth    := 0.05
+HD_ALIEN_Double    := 2.0
+HD_ALIEN_Quadruple := 4.0
+HD_ALIEN_Tenfold   := 10.0
 
-JUMP_SPEC_Half     := 0.5
-JUMP_SPEC_Quarter  := 0.25
-JUMP_SPEC_Tenth    := 0.1
+HD_SPEC_Double    := 4.0
+HD_SPEC_Quadruple := 8.0
+HD_SPEC_Tenfold   := 20.0
 
-JUMP_ROBO_Half     := 0.5
-JUMP_ROBO_Quarter  := 0.25
-JUMP_ROBO_Tenth    := 0.1
+HD_ROBO_Double    := 4.0
+HD_ROBO_Quadruple := 8.0
+HD_ROBO_Tenfold   := 20.0
 
-# Descriptions shown in the FOMOD menu and in the in-game mod list.
-# No "%" problem: these go through sed and zip.
-DESC_Half     := 50% pulse engine fuel
-DESC_Quarter  := 25% pulse engine fuel
-DESC_Tenth    := 10% pulse engine fuel
+# Descriptions shown in the FOMOD menu and in the in-game mod list. The variant
+# name says the mechanic, the description translates it into the fuel saving
+# the player actually cares about. No "%" problem: these go through sed and zip.
+DESC_Double    := 2x warps per cell - half the fuel per jump
+DESC_Quadruple := 4x warps per cell - a quarter of the fuel per jump
+DESC_Tenfold   := 10x warps per cell - a tenth of the fuel per jump
 
-# Base engine value per variant, for the verify summary line.
-BASEVALS := $(foreach v,$(VARIANT),$(v)=$(JUMP1_$(v)))
+# Base hyperdrive value per variant, for the verify summary line.
+BASEVALS := $(foreach v,$(VARIANT),$(v)=$(HD_$(v)))
 
-# The four ship pulse engine technologies this mod patches. Keep in sync with
-# PulseTechs in src/pulsefuel.lua.in (build checks this).
-PULSE_TECHS := SHIPJUMP1 SHIPJUMP_ALIEN SHIPJUMP_SPEC SHIPJUMP_ROBO
+# The four ship hyperdrive technologies this mod patches. Keep in sync with
+# HyperTechs in src/hyperfuel.lua.in (build checks this).
+HYPER_TECHS := HYPERDRIVE WARP_ALIEN HYPERDRIVE_SPEC HYPERDRIVE_ROBO
 
-# Which per-tech value variable holds each tech's multiplier.
-JUMPVAR_SHIPJUMP1      := JUMP1
-JUMPVAR_SHIPJUMP_ALIEN := JUMP_ALIEN
-JUMPVAR_SHIPJUMP_SPEC  := JUMP_SPEC
-JUMPVAR_SHIPJUMP_ROBO  := JUMP_ROBO
+# Which per-tech value variable holds each tech's value.
+JUMPVAR_HYPERDRIVE      := HD
+JUMPVAR_WARP_ALIEN      := HD_ALIEN
+JUMPVAR_HYPERDRIVE_SPEC := HD_SPEC
+JUMPVAR_HYPERDRIVE_ROBO := HD_ROBO
 
-# Multiplier for one tech in one variant, e.g. jumptval Half SHIPJUMP_SPEC -> 0.5
+# Value for one tech in one variant, e.g. jumptval Double HYPERDRIVE_SPEC -> 4.0
 jumptval = $($(JUMPVAR_$(2))_$(1))
 
 # "TECH=value" pairs for one variant, for the awk value check.
-jumpwant = $(foreach t,$(PULSE_TECHS),$(t)=$(call jumptval,$(1),$(t)))
+jumpwant = $(foreach t,$(HYPER_TECHS),$(t)=$(call jumptval,$(1),$(t)))
 
 # clean runs before build runs before verify, so release must not be parallel.
 .NOTPARALLEL:
@@ -135,8 +142,8 @@ release: clean build verify
 # than a script with a blank multiplier.
 $(BUILD)/%.lua: $(SRC_TEMPLATE)
 	@mkdir -p "$(BUILD)"
-	@test -n "$(JUMP1_$*)" -a -n "$(JUMP_ALIEN_$*)" -a -n "$(JUMP_SPEC_$*)" -a -n "$(JUMP_ROBO_$*)" -a -n "$(DESC_$*)" || { echo "ERROR: unknown variant '$*' - add JUMP1_$*, JUMP_ALIEN_$*, JUMP_SPEC_$*, JUMP_ROBO_$* and DESC_$* to the Makefile" >&2; exit 1; }
-	@sed -e "s/@VARIANT_LABEL@/$*/" -e "s/@JUMP1@/$(JUMP1_$*)/" -e "s/@JUMP_ALIEN@/$(JUMP_ALIEN_$*)/" -e "s/@JUMP_SPEC@/$(JUMP_SPEC_$*)/" -e "s/@JUMP_ROBO@/$(JUMP_ROBO_$*)/" -e "s/@DESC@/$(DESC_$*)/" "$(SRC_TEMPLATE)" > "$@"
+	@test -n "$(HD_$*)" -a -n "$(HD_ALIEN_$*)" -a -n "$(HD_SPEC_$*)" -a -n "$(HD_ROBO_$*)" -a -n "$(DESC_$*)" || { echo "ERROR: unknown variant '$*' - add HD_$*, HD_ALIEN_$*, HD_SPEC_$*, HD_ROBO_$* and DESC_$* to the Makefile" >&2; exit 1; }
+	@sed -e "s/@VARIANT_LABEL@/$*/" -e "s/@HD@/$(HD_$*)/" -e "s/@HD_ALIEN@/$(HD_ALIEN_$*)/" -e "s/@HD_SPEC@/$(HD_SPEC_$*)/" -e "s/@HD_ROBO@/$(HD_ROBO_$*)/" -e "s/@DESC@/$(DESC_$*)/" "$(SRC_TEMPLATE)" > "$@"
 
 # One pipeline run builds every variant as an individual mod.
 build: $(RENDERED)
@@ -159,7 +166,7 @@ build: $(RENDERED)
 	@touch "$(STAMP)"
 	@echo "built: $(foreach v,$(VARIANT),$(BUILD)/$(MOD_SET) - $(v) )"
 
-# Single zip with a FOMOD installer menu (choose a fuel usage).
+# Single zip with a FOMOD installer menu (choose a jumps-per-cell multiplier).
 # fomod/ lives at the zip root (that is how managers detect installers).
 # Version travels in the zip filename (Nexus convention).
 FOMOD_ZIP := $(DIST)/$(MOD_SET) $(VERSION).zip
@@ -169,16 +176,34 @@ exml = $(BUILD)/$(MOD_SET) - $(1)/$(EXML_RELPATH)
 
 # One check chain per variant, expanded at make time so each value is baked in.
 # The generated EXML is a minimal patch, keyed by _id rather than name="ID",
-# and carries no StatsType leaf, so verify has two jobs:
-#   1. each of the four techs got the value we asked for, in the right
+# and carries no StatsType leaf, so verify has three jobs:
+#   1. the EXML was produced by THIS run, not carried over from a previous one
+#   2. each of the four techs got the value we asked for, in the right
 #      StatBonuses slot
-#   2. nothing ELSE got touched - the total Bonus count must be exactly 4.
+#   3. nothing ELSE got touched - the total Bonus count must be exactly 4.
 #      This is the load-bearing check. If a SPECIAL_KEY_WORDS path ever stops
 #      matching, AMUMSS silently applies the change to every StatBonuses in
 #      the table (501 of them in v7.04) and ships that as the patch.
+#
+# Job 1 covers the failure mode the other two cannot see. The build copies each
+# variant out of $(AMUMSS_HOME)/CreatedMODS, which is a persistent directory
+# that this Makefile does not own. When a script changes nothing (a drifted
+# keyword path, a typo, a bad stat name) AMUMSS logs "0 action(s) made",
+# creates nothing, and leaves the PREVIOUS build's file sitting there. The copy
+# then succeeds, and jobs 2 and 3 happily validate last week's output. The
+# rendered script is always written before the pipeline runs, so anything
+# older than it came from somewhere else.
 define VERIFY_VARIANT
 test -f "$(call exml,$(1))" || { echo "MISSING $(1) EXML" >&2; exit 1; }; \
-awk -v tag="$(1)" -v ntech="$(words $(PULSE_TECHS))" -v wantidx="$(PULSE_BONUS_INDEX)" -v want="$(call jumpwant,$(1))" \
+if [ "$(call exml,$(1))" -ot "$(BUILD)/$(1).lua" ]; then \
+	echo "STALE $(1) EXML - older than the script that should have produced it." >&2; \
+	echo "       AMUMSS most likely made no changes this run, so this is output from a" >&2; \
+	echo "       previous build being picked out of $(AMUMSS_HOME)/CreatedMODS." >&2; \
+	echo "       Clear $(AMUMSS_HOME)/CreatedMODS and rebuild; if it persists the script" >&2; \
+	echo "       is not matching anything." >&2; \
+	exit 1; \
+fi; \
+awk -v tag="$(1)" -v ntech="$(words $(HYPER_TECHS))" -v wantidx="$(HYPER_BONUS_INDEX)" -v want="$(call jumpwant,$(1))" \
  'BEGIN{n=split(want,W," ");for(i=1;i<=n;i++){split(W[i],kv,"=");want_v[kv[1]]=kv[2]+0}} \
   /name="Table" value="GcTechnology"/{if(match($$0,/_id="[^"]*"/)){x=substr($$0,RSTART+5,RLENGTH-6);if(x in want_v){t=x;ix=-1}}} \
   /name="StatBonuses" value="GcStatsBonus"/{if(match($$0,/_index="[^"]*"/)){ix=substr($$0,RSTART+8,RLENGTH-9)+0}} \
@@ -190,9 +215,9 @@ endef
 
 verify: build
 	@set -e; for v in $(VARIANT); do \
-		for t in $(PULSE_TECHS); do \
+		for t in $(HYPER_TECHS); do \
 			grep -qF "\"$$t\"," "$(BUILD)/$$v.lua" \
-				|| { echo "ERROR: $$t is missing from PulseTechs in $(SRC_TEMPLATE) - PULSE_TECHS in the Makefile and the template have drifted apart" >&2; exit 1; }; \
+				|| { echo "ERROR: $$t is missing from HyperTechs in $(SRC_TEMPLATE) - HYPER_TECHS in the Makefile and the template have drifted apart" >&2; exit 1; }; \
 		done; \
 		kw=$$(grep -o '\["SPECIAL_KEY_WORDS"\][^}]*}' "$(BUILD)/$$v.lua" | head -1); \
 		n=$$(printf '%s' "$$kw" | tr -cd ',' | wc -c); \
@@ -205,11 +230,11 @@ verify: build
 		fi; \
 	done
 	@set -e; $(foreach v,$(VARIANT),$(call VERIFY_VARIANT,$(v));)
-	@echo "verify: OK ($(BASEVALS) pulse engine multiplier, $(words $(PULSE_TECHS)) techs each, no marker tags)"
+	@echo "verify: OK ($(BASEVALS) hyperdrive warps per cell, $(words $(HYPER_TECHS)) techs each, fresh this run, no marker tags)"
 
 # Nexus page images from assets/src (Pillow required). Outputs are
 # generated artifacts (gitignored) - reproducible via this target.
-assets: assets/src/pulse-fuel.jpg assets/generate.py
+assets: assets/src/hyperdrive-fuel.jpg assets/generate.py
 	python3 assets/generate.py
 
 clean:

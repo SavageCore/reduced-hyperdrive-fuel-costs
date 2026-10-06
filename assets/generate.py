@@ -2,13 +2,13 @@
 """Regenerate Nexus page images from the source screenshot.
 
 Deterministic rebuild of what was previously done ad-hoc:
-  assets/gallery-pulse-1920x1080.jpg  (16:9 downscale, gallery slot)
+  assets/gallery-hyperdrive-1920x1080.jpg  (16:9 downscale, gallery slot)
   assets/header-1300x372.jpg            (wide crop + title overlay, banner)
 
 Usage: python3 assets/generate.py   (or: make assets)
 Requires: Pillow (pip install Pillow). Typeface is vendored (see FONT).
 
-SRC must be an in-game pulse fuel / pulse jump screenshot at 2560x1440.
+SRC must be an in-game hyperdrive fuel / warp screenshot at 2560x1440.
 Ship art that does not match the mod is worse than shipping no art at all,
 so generate.py refuses to run rather than guess.
 """
@@ -18,16 +18,16 @@ import sys
 from PIL import Image, ImageDraw, ImageFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SRC = os.path.join(HERE, "src", "pulse-fuel.jpg")
-GAL = os.path.join(HERE, "gallery-pulse-1920x1080.jpg")
+SRC = os.path.join(HERE, "src", "hyperdrive-fuel.jpg")
+GAL = os.path.join(HERE, "gallery-hyperdrive-1920x1080.jpg")
 HDR = os.path.join(HERE, "header-1300x372.jpg")
 
 # In-game heading typeface, vendored (SIL OFL 1.1):
 # https://github.com/NMSCD/No-Mans-Sky-Universal-Font
 FONT = os.path.join(HERE, "fonts", "GeosansLight-NMS.ttf")
 
-TITLE = "REDUCED PULSE DRIVE FUEL COSTS"
-SUBTITLE = "HALF  \u2022  QUARTER  \u2022  TENTH"
+TITLE = "REDUCED HYPERDRIVE FUEL COSTS"
+SUBTITLE = "DOUBLE  \u2022  QUADRUPLE  \u2022  TENFOLD"
 
 # Vertical offset of the header crop band in source pixels
 HEADER_BAND_Y = 400
@@ -37,7 +37,7 @@ BAND_W, BAND_H = 1300, 372
 
 # Scrim opacity (0-255 of black). FLOOR darkens the whole banner; TEXT is the
 # extra scrim held across the text block. Tuned against the real screenshot
-# (a bright, busy inventory screen with the Pulse Engine tooltip open), where
+# (a bright, busy inventory screen with the Hyperdrive tooltip open), where
 # 145+75 gives the title 15.7:1 and the subtitle 10.7:1 against that source.
 #
 # The previous squared gradient produced only ~3.3:1 for the title and ~2:1
@@ -60,7 +60,7 @@ SUBTITLE_COLOR = (255, 205, 130)
 def main():
     if not os.path.exists(SRC):
         sys.exit(f"missing source screenshot: {SRC}\n"
-                 f"Drop a 2560x1440 in-game pulse fuel / pulse jump screenshot there.")
+                 f"Drop a 2560x1440 in-game hyperdrive fuel / warp screenshot there.")
 
     img = Image.open(SRC).convert("RGB")
     assert img.size == (2560, 1440), f"unexpected source size {img.size}"
