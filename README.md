@@ -53,15 +53,16 @@ make release      # clean rebuild + verify + pack dist/ zip (default)
 make verify       # sanity-check the built outputs
 make clean        # remove build/ and dist/
 make assets       # regenerate Nexus page images (needs assets/src/hyperdrive-fuel.jpg)
-
-make release VERSION=0.1.0   # override the version in the zip name
 ```
 
-`VERSION` in the `Makefile` is currently **0.0.0**. It is a development build:
-the generated patch is verified against the v7.04 technology table, but the
+`VERSION` in the `Makefile` is the mod version, published as the version of
+the Nexus release. It is deliberately not part of the mod name: the artifact
+is named after the mod alone, because a mod manager names the installed mod
+after the archive file name and shows the version in a column of its own.
+
+The generated patch is verified against the v7.06 technology table, but the
 shipped variants have not been played in game yet (see
-[Not yet confirmed in game](#not-yet-confirmed-in-game)). It becomes 0.1.0 in
-its own commit once they have.
+[Not yet confirmed in game](#not-yet-confirmed-in-game)).
 
 `make build` temporarily stages the variant scripts into
 `$(AMUMSS_HOME)/ModScript` (existing content moved aside and restored),
@@ -74,7 +75,7 @@ four** `Bonus` values were patched in total.
 
 The count check exists because of how AMUMSS fails: a `SPECIAL_KEY_WORDS` path
 that stops matching does not error, it silently applies the change to every
-`StatBonuses` in the table (501 of them in v7.04) and ships that. See the
+`StatBonuses` in the table (501 of them in v7.06) and ships that. See the
 comment on `SPECIAL_KEY_WORDS` in `src/hyperfuel.lua.in`.
 
 The freshness check covers the failure the count check cannot see. Each variant
@@ -88,7 +89,7 @@ from somewhere else, and verify fails rather than shipping it.
 
 ## Release
 
-`make release` creates `dist/Reduced Hyperdrive Fuel Costs <VERSION>.zip`,
+`make release` creates `dist/Reduced Hyperdrive Fuel Costs.zip`,
 which is the zip to import into
 [Amethyst](https://github.com/ChrisDKN/Amethyst-Mod-Manager)/[Vortex](https://github.com/Nexus-Mods/Vortex)
 or upload to Nexus. `fomod/` sits at the zip root, which is how mod managers
@@ -145,7 +146,7 @@ for tech in t.getroot().find('Property').findall('Property'):
 EOF
 ```
 
-Expected as of v7.04: exactly the four `HYPERDRIVE*` / `WARP_ALIEN` drives at
+Expected as of v7.06: exactly the four `HYPERDRIVE*` / `WARP_ALIEN` drives at
 `_index=2`, with vanilla values `1.0`, `1.0`, `2.0`, `2.0`. If the four drives
 move off `_index=2`, update `HYPER_BONUS_INDEX` in the `Makefile` or
 `make verify` will fail loudly rather than quietly patching the wrong stat. If
